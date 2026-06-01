@@ -23,19 +23,17 @@ const SERVICES = [
 
 interface ServiceRequest {
   id: string
-  service_type: string
+  resident_id: string
+  service: string
   title: string
   description: string
   urgency: 'ASAP' | 'This week' | 'Flexible'
-  posted_by: string
-  posted_by_email: string
-  created_at: string
-  contractor_responses: number
-  estimated_budget?: string
-  photos?: string[]
   status: 'active' | 'paused' | 'completed'
-  location?: string
-  phone?: string
+  address_hint?: string
+  response_count: number
+  photos?: string[]
+  created_at: string
+  updated_at: string
 }
 
 interface Message {
@@ -60,15 +58,12 @@ export default function BoardPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [photoPreview, setPhotoPreview] = useState<string>('')
   const [formData, setFormData] = useState({
-    service_type: '',
+    service: '',
     title: '',
     description: '',
     urgency: 'This week' as const,
-    posted_by: '',
-    posted_by_email: '',
-    phone: '',
-    location: '',
-    estimated_budget: '',
+    resident_id: '',
+    address_hint: '',
     photos: [] as string[],
   })
   const [submitting, setSubmitting] = useState(false)
@@ -76,10 +71,9 @@ export default function BoardPage() {
   // Fetch requests from Supabase
   useEffect(() => {
     fetchRequests()
-    // Load current user email from localStorage
-    const savedEmail = localStorage.getItem('neighborlink_user_email')
-    if (savedEmail) {
-      setFormData((prev) => ({ ...prev, posted_by_email: savedEmail }))
+    const savedResidentId = localStorage.getItem('neighborlink_resident_id')
+    if (savedResidentId) {
+      setFormData((prev) => ({ ...prev, resident_id: savedResidentId }))
     }
   }, [])
 
@@ -98,9 +92,9 @@ export default function BoardPage() {
       setFilteredRequests(allRequests)
 
       // Filter user's requests
-      const currentUserEmail = localStorage.getItem('neighborlink_user_email')
-      if (currentUserEmail) {
-        const userReqs = allRequests.filter((r: any) => r.posted_by_email === currentUserEmail)
+      const currentResidentId = localStorage.getItem('neighborlink_resident_id')
+      if (currentResidentId) {
+        const userReqs = allRequests.filter((r: any) => r.resident_id === currentResidentId)
         setUserRequests(userReqs)
       }
     } catch (error) {
@@ -117,7 +111,7 @@ export default function BoardPage() {
       setFilteredRequests(requests)
     } else {
       setFilteredRequests(
-        requests.filter((req) => req.service_type === categoryId)
+        requests.filter((req) => req.service === categoryId)
       )
     }
   }
@@ -125,29 +119,25 @@ export default function BoardPage() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.service_type || !formData.title || !formData.posted_by || !formData.posted_by_email) {
+    if (!formData.service || !formData.title || !formData.resident_id) {
       alert('Please fill in all required fields')
       return
     }
 
     try {
       setSubmitting(true)
-      // Save user email to localStorage
-      localStorage.setItem('neighborlink_user_email', formData.posted_by_email)
+      localStorage.setItem('neighborlink_resident_id', formData.resident_id)
 
       const { error } = await supabase.from('requests').insert([
         {
-          service_type: formData.service_type,
+          resident_id: formData.resident_id,
+          service: formData.service,
           title: formData.title,
           description: formData.description,
           urgency: formData.urgency,
-          posted_by: formData.posted_by,
-          posted_by_email: formData.posted_by_email,
-          phone: formData.phone,
-          location: formData.location,
-          estimated_budget: formData.estimated_budget,
+          address_hint: formData.address_hint || null,
           photos: formData.photos.length > 0 ? formData.photos : null,
-          contractor_responses: 0,
+          response_count: 0,
           status: 'active',
         },
       ])
@@ -155,15 +145,12 @@ export default function BoardPage() {
       if (error) throw error
 
       setFormData({
-        service_type: '',
+        service: '',
         title: '',
         description: '',
         urgency: 'This week',
-        posted_by: '',
-        posted_by_email: localStorage.getItem('neighborlink_user_email') || '',
-        phone: '',
-        location: '',
-        estimated_budget: '',
+        resident_id: localStorage.getItem('neighborlink_resident_id') || '',
+        address_hint: '',
         photos: [],
       })
       setPhotoPreview('')
@@ -358,18 +345,13 @@ export default function BoardPage() {
                   </div>
 
                   <div className="space-y-2 mb-4 text-sm">
-                    {request.estimated_budget && (
+                    {request.address_hint && (
                       <p className="text-gray-700">
-                        <span className="font-semibold">Budget:</span> {request.estimated_budget}
-                      </p>
-                    )}
-                    {request.location && (
-                      <p className="text-gray-700">
-                        <span className="font-semibold">Location:</span> {request.location}
+                        <span className="font-semibold">Location:</span> {request.address_hint}
                       </p>
                     )}
                     <p className="text-gray-700">
-                      <span className="font-semibold">Contractor Responses:</span> {request.contractor_responses}
+                      <span className="font-semibold">Contractor Responses:</span> {request.response_count}
                     </p>
                   </div>
 
@@ -469,9 +451,9 @@ export default function BoardPage() {
                     >
                       {/* Service Type Badge */}
                       <div className="flex items-center justify-between mb-3">
-                        <span className="text-2xl">{getServiceIcon(request.service_type)}</span>
+                        <span className="text-2xl">{getServiceIcon(request.service)}</span>
                         <span className="inline-block px-3 py-1 rounded-full bg-[#E6F4ED] text-[#1B6B4A] text-xs font-semibold">
-                          {getServiceLabel(request.service_type)}
+                          {getServiceLabel(request.service)}
                         </span>
                       </div>
 
@@ -505,12 +487,9 @@ export default function BoardPage() {
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getUrgencyColor(request.urgency)}`}>
                             {request.urgency}
                           </span>
-                          {request.estimated_budget && (
-                            <span className="text-[#1B6B4A] font-semibold">{request.estimated_budget}</span>
-                          )}
                         </div>
-                        {request.location && (
-                          <p className="text-gray-600">📍 {request.location}</p>
+                        {request.address_hint && (
+                          <p className="text-gray-600">📍 {request.address_hint}</p>
                         )}
                       </div>
 
@@ -518,13 +497,13 @@ export default function BoardPage() {
                       <div className="border-t border-gray-200 pt-3 mt-3">
                         <div className="flex items-center justify-between text-sm mb-2">
                           <div>
-                            <p className="text-gray-500 text-xs">Posted by</p>
-                            <p className="font-semibold text-gray-900">{request.posted_by}</p>
+                            <p className="text-gray-500 text-xs">Request ID</p>
+                            <p className="font-semibold text-gray-900">{request.id}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-gray-500 text-xs">Responses</p>
                             <p className="font-bold text-lg text-[#1B6B4A]">
-                              {request.contractor_responses}
+                              {request.response_count}
                             </p>
                           </div>
                         </div>
@@ -565,9 +544,9 @@ export default function BoardPage() {
                         Service Type *
                       </label>
                       <select
-                        value={formData.service_type}
+                        value={formData.service}
                         onChange={(e) =>
-                          setFormData({ ...formData, service_type: e.target.value })
+                          setFormData({ ...formData, service: e.target.value })
                         }
                         className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
                         required
@@ -640,20 +619,6 @@ export default function BoardPage() {
                       )}
                     </div>
 
-                    {/* Estimated Budget */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">
-                        Estimated Budget (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.estimated_budget}
-                        onChange={(e) => setFormData({ ...formData, estimated_budget: e.target.value })}
-                        placeholder="e.g., $500-$1000"
-                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                      />
-                    </div>
-
                     {/* Urgency */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -683,25 +648,10 @@ export default function BoardPage() {
                       </label>
                       <input
                         type="text"
-                        value={formData.location}
-                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        value={formData.address_hint}
+                        onChange={(e) => setFormData({ ...formData, address_hint: e.target.value })}
                         placeholder="Street address or area"
                         className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                      />
-                    </div>
-
-                    {/* Your Name */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">
-                        Your Name *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.posted_by}
-                        onChange={(e) => setFormData({ ...formData, posted_by: e.target.value })}
-                        placeholder="John Smith"
-                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                        required
                       />
                     </div>
 
@@ -712,25 +662,11 @@ export default function BoardPage() {
                       </label>
                       <input
                         type="email"
-                        value={formData.posted_by_email}
-                        onChange={(e) => setFormData({ ...formData, posted_by_email: e.target.value })}
+                        value={formData.resident_id}
+                        onChange={(e) => setFormData({ ...formData, resident_id: e.target.value })}
                         placeholder="john@example.com"
                         className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
                         required
-                      />
-                    </div>
-
-                    {/* Phone */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">
-                        Phone Number (optional)
-                      </label>
-                      <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="(615) 555-0123"
-                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
                       />
                     </div>
                   </div>
