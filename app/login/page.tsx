@@ -21,11 +21,17 @@ function LoginContent() {
   const [email, setEmail] = useState('')
 
   useEffect(() => {
+    const storedUser = localStorage.getItem('neighborlink_user')
+    if (storedUser) {
+      router.replace('/account')
+      return
+    }
+
     const paramRole = searchParams.get('role')
     if (paramRole === 'contractor' || paramRole === 'resident') {
       setRole(paramRole)
     }
-  }, [searchParams])
+  }, [router, searchParams])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,7 +48,7 @@ function LoginContent() {
     }
 
     localStorage.setItem('neighborlink_user', JSON.stringify(user))
-    router.push(role === 'resident' ? '/board' : '/join')
+    router.push('/account')
   }
 
   return (

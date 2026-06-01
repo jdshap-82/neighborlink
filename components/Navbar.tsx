@@ -46,6 +46,12 @@ export default function Navbar() {
         </Link>
         {user ? (
           <>
+            <Link
+              href="/account"
+              className="px-4 py-2 rounded-lg border border-[#1B6B4A] text-[#1B6B4A] text-sm font-semibold hover:bg-[#E6F4ED] transition"
+            >
+              My Account
+            </Link>
             {user.role === 'contractor' ? (
               <Link
                 href="/contractor"
