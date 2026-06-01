@@ -1,6 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 const SERVICES = [
@@ -53,7 +55,17 @@ interface Review {
   created_at: string
 }
 
+interface User {
+  id: string
+  role: 'resident' | 'contractor'
+  name: string
+  email: string
+  trade?: string
+  phone?: string
+}
+
 export default function BoardPage() {
+  const [user, setUser] = useState<User | null>(null)
   const [requests, setRequests] = useState<ServiceRequest[]>([])
   const [filteredRequests, setFilteredRequests] = useState<ServiceRequest[]>([])
   const [userRequests, setUserRequests] = useState<ServiceRequest[]>([])
@@ -89,11 +101,25 @@ export default function BoardPage() {
     comment: '',
   })
   const [submitting, setSubmitting] = useState(false)
+  const router = useRouter()
 
   // Fetch requests from Supabase
   useEffect(() => {
+    const savedUser = localStorage.getItem('neighborlink_user')
+    if (savedUser) {
+      setUser(JSON.parse(savedUser))
+    }
     fetchRequests()
+    loadReviews()
   }, [])
+
+  useEffect(() => {
+    if (user?.role === 'resident') {
+      setUserRequests(requests.filter((r) => r.resident_id === user.id))
+    } else {
+      setUserRequests([])
+    }
+  }, [user, requests])
 
   const fetchRequests = async () => {
     try {
@@ -108,13 +134,21 @@ export default function BoardPage() {
       const allRequests = data || []
       setRequests(allRequests)
       setFilteredRequests(allRequests)
-
-      // No auth yet, so My Requests remains empty until resident identity is implemented
-      setUserRequests([])
     } catch (error) {
       console.error('Error fetching requests:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadReviews = () => {
+    const storedReviews = localStorage.getItem('neighborlink_reviews')
+    if (storedReviews) {
+      try {
+        setReviews(JSON.parse(storedReviews))
+      } catch {
+        setReviews([])
+      }
     }
   }
 
@@ -138,6 +172,11 @@ export default function BoardPage() {
       return
     }
 
+    if (!user || user.role !== 'resident') {
+      alert('Please log in as a resident to post a request.')
+      return
+    }
+
     try {
       setSubmitting(true)
 
@@ -150,7 +189,7 @@ export default function BoardPage() {
 
       const { error } = await supabase.from('requests').insert([
         {
-          resident_id: null,
+          resident_id: user.id,
           service: formData.service,
           title: formData.title,
           description: `${formData.description}${contactInfo}`.trim(),
@@ -237,7 +276,11 @@ export default function BoardPage() {
       created_at: new Date().toISOString(),
     }
 
-    setReviews((prev) => [newReview, ...prev])
+    setReviews((prev) => {
+      const next = [newReview, ...prev]
+      localStorage.setItem('neighborlink_reviews', JSON.stringify(next))
+      return next
+    })
     setReviewData({ contractor_name: '', rating: 5, comment: '' })
   }
 
@@ -363,12 +406,31 @@ export default function BoardPage() {
             <p className="text-gray-600">Post your needs and connect with local contractors</p>
           </div>
           <button
-            onClick={() => setShowPostForm(true)}
+            onClick={() => {
+              if (user?.role === 'resident') {
+                setShowPostForm(true)
+              } else {
+                router.push('/login?role=resident')
+              }
+            }}
             className="px-6 py-3 rounded-lg bg-[#1B6B4A] text-white font-semibold hover:bg-[#134E35] transition"
           >
             + Post a Request
           </button>
         </div>
+        {!user ? (
+          <div className="max-w-7xl mx-auto px-6 pb-4">
+            <div className="rounded-2xl bg-[#E6F4ED] p-4 text-sm text-gray-700">
+              <span className="font-semibold">Resident?</span> <Link href="/login?role=resident" className="text-[#1B6B4A] underline">Log in</Link> or <Link href="/signup" className="text-[#1B6B4A] underline">sign up</Link> to save requests and use My Requests.
+            </div>
+          </div>
+        ) : user.role === 'contractor' ? (
+          <div className="max-w-7xl mx-auto px-6 pb-4">
+            <div className="rounded-2xl bg-[#E6F4ED] p-4 text-sm text-gray-700">
+              You are logged in as a contractor. Browse requests and message residents directly in the app.
+            </div>
+          </div>
+        ) : null}
 
         {/* Tab Navigation */}
         <div className="flex gap-4 border-b border-gray-200">
@@ -380,14 +442,16 @@ export default function BoardPage() {
           >
             Browse Requests
           </button>
-          <button
-            onClick={() => setShowMyRequests(true)}
-            className={`pb-3 px-4 font-semibold transition ${
-              showMyRequests ? 'text-[#1B6B4A] border-b-2 border-[#1B6B4A]' : 'text-gray-600'
-            }`}
-          >
-            My Requests ({userRequests.length})
-          </button>
+          {user?.role === 'resident' && (
+            <button
+              onClick={() => setShowMyRequests(true)}
+              className={`pb-3 px-4 font-semibold transition ${
+                showMyRequests ? 'text-[#1B6B4A] border-b-2 border-[#1B6B4A]' : 'text-gray-600'
+              }`}
+            >
+              My Requests ({userRequests.length})
+            </button>
+          )}
         </div>
       </div>
 
