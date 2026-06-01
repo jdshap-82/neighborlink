@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 const SERVICES = [
   { id: "hvac", label: "HVAC", icon: "❄️" },
   { id: "plumbing", label: "Plumbing", icon: "🔧" },
@@ -21,21 +19,6 @@ const SERVICES = [
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#F9F6F1]">
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="text-2xl font-bold text-[#1B6B4A] flex items-center gap-2">
-          <span>🏘️</span> NeighborLink
-        </div>
-        <div className="flex gap-3">
-          <Link href="/board" className="px-4 py-2 rounded-lg border-2 border-[#1B6B4A] text-[#1B6B4A] font-semibold text-sm hover:bg-[#E6F4ED] transition">
-            I'm a Resident
-          </Link>
-          <Link href="/join" className="px-4 py-2 rounded-lg bg-[#1B6B4A] text-white font-semibold text-sm hover:bg-[#134E35] transition">
-            I'm a Contractor
-          </Link>
-        </div>
-      </nav>
-
       {/* Hero */}
       <div className="max-w-3xl mx-auto px-6 pt-20 pb-10 text-center">
         <div className="inline-block px-4 py-1.5 rounded-full bg-[#E6F4ED] text-[#1B6B4A] text-xs font-semibold tracking-wide mb-5">

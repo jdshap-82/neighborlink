@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 const SERVICES = [
@@ -149,19 +148,6 @@ export default function BoardPage() {
 
   return (
     <div className="min-h-screen bg-[#F9F6F1]">
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 sticky top-0 z-50">
-        <Link href="/" className="text-2xl font-bold text-[#1B6B4A] flex items-center gap-2">
-          <span>🏘️</span> NeighborLink
-        </Link>
-        <button
-          onClick={() => setShowPostForm(true)}
-          className="px-4 py-2 rounded-lg bg-[#1B6B4A] text-white font-semibold text-sm hover:bg-[#134E35] transition"
-        >
-          + Post a Request
-        </button>
-      </nav>
-
       {/* Page Title */}
       <div className="max-w-7xl mx-auto px-6 pt-10 pb-6">
         <h1 className="text-4xl font-bold text-gray-900 mb-2">Service Requests</h1>
