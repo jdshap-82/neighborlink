@@ -45,6 +45,14 @@ interface Message {
   created_at: string
 }
 
+interface Review {
+  id: string
+  contractor_name: string
+  rating: number
+  comment: string
+  created_at: string
+}
+
 export default function BoardPage() {
   const [requests, setRequests] = useState<ServiceRequest[]>([])
   const [filteredRequests, setFilteredRequests] = useState<ServiceRequest[]>([])
@@ -56,6 +64,7 @@ export default function BoardPage() {
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null)
   const [showMessages, setShowMessages] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
   const [photoPreview, setPhotoPreview] = useState<string>('')
   const [formData, setFormData] = useState({
     service: '',
@@ -63,7 +72,21 @@ export default function BoardPage() {
     description: '',
     urgency: 'This week' as const,
     address_hint: '',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    contact_note: '',
     photos: [] as string[],
+  })
+  const [messageForm, setMessageForm] = useState({
+    contractor_name: '',
+    contractor_email: '',
+    message: '',
+  })
+  const [reviewData, setReviewData] = useState({
+    contractor_name: '',
+    rating: 5,
+    comment: '',
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -118,12 +141,19 @@ export default function BoardPage() {
     try {
       setSubmitting(true)
 
+      const contactInfoParts = []
+      if (formData.contact_name) contactInfoParts.push(`Contact: ${formData.contact_name}`)
+      if (formData.contact_email) contactInfoParts.push(`Email: ${formData.contact_email}`)
+      if (formData.contact_phone) contactInfoParts.push(`Phone: ${formData.contact_phone}`)
+      if (formData.contact_note) contactInfoParts.push(`Note: ${formData.contact_note}`)
+      const contactInfo = contactInfoParts.length > 0 ? `\n\n${contactInfoParts.join('\n')}` : ''
+
       const { error } = await supabase.from('requests').insert([
         {
           resident_id: null,
           service: formData.service,
           title: formData.title,
-          description: formData.description,
+          description: `${formData.description}${contactInfo}`.trim(),
           urgency: formData.urgency,
           address_hint: formData.address_hint || null,
           photos: formData.photos.length > 0 ? formData.photos : null,
@@ -140,6 +170,10 @@ export default function BoardPage() {
         description: '',
         urgency: 'This week',
         address_hint: '',
+        contact_name: '',
+        contact_email: '',
+        contact_phone: '',
+        contact_note: '',
         photos: [],
       })
       setPhotoPreview('')
@@ -151,6 +185,60 @@ export default function BoardPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleSendMessage = async (requestId: string) => {
+    if (!messageForm.contractor_name || !messageForm.contractor_email || !messageForm.message) {
+      alert('Please enter your name, email, and a message.')
+      return
+    }
+
+    try {
+      const { error } = await supabase.from('messages').insert([
+        {
+          request_id: requestId,
+          contractor_name: messageForm.contractor_name,
+          contractor_email: messageForm.contractor_email,
+          message: messageForm.message,
+        },
+      ])
+
+      if (error) throw error
+
+      setMessageForm({ contractor_name: '', contractor_email: '', message: '' })
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}`,
+          request_id: requestId,
+          contractor_name: messageForm.contractor_name,
+          contractor_email: messageForm.contractor_email,
+          message: messageForm.message,
+          created_at: new Date().toISOString(),
+        },
+      ])
+    } catch (error) {
+      console.error('Error sending message:', error)
+      alert('Unable to send message. Please try again.')
+    }
+  }
+
+  const handleSubmitReview = (requestId: string) => {
+    if (!reviewData.contractor_name || !reviewData.comment) {
+      alert('Please provide the contractor name and your review.')
+      return
+    }
+
+    const newReview: Review = {
+      id: `${Date.now()}`,
+      contractor_name: reviewData.contractor_name,
+      rating: reviewData.rating,
+      comment: reviewData.comment,
+      created_at: new Date().toISOString(),
+    }
+
+    setReviews((prev) => [newReview, ...prev])
+    setReviewData({ contractor_name: '', rating: 5, comment: '' })
   }
 
   // Handle photo upload
@@ -644,9 +732,62 @@ export default function BoardPage() {
                       />
                     </div>
 
+                    {/* Contact Info */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Contact Name
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.contact_name}
+                        onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                        placeholder="Jane Doe"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Contact Email
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.contact_email}
+                        onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                        placeholder="jane@example.com"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Contact Phone
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.contact_phone}
+                        onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                        placeholder="(615) 555-0123"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Contact Note
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.contact_note}
+                        onChange={(e) => setFormData({ ...formData, contact_note: e.target.value })}
+                        placeholder="Best times to reach me or preferred method"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                      />
+                    </div>
+
                     <div className="md:col-span-2">
                       <p className="text-sm text-gray-500">
-                        Resident ID is currently assigned using a placeholder value until authentication is implemented.
+                        Contractors can message you through NeighborLink without exposing your personal details publicly.
                       </p>
                     </div>
                   </div>
@@ -695,27 +836,148 @@ export default function BoardPage() {
               </button>
             </div>
 
-            <div className="p-6">
-              {messages.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No messages yet. Contractors will message you here when interested.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div key={message.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-semibold text-gray-900">{message.contractor_name}</p>
-                          <p className="text-xs text-gray-600">{message.contractor_email}</p>
+            <div className="p-6 space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Private Contractor Messages</h3>
+                {messages.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No messages yet. Contractors can reach out here without your contact info being published.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {messages.map((message) => (
+                      <div key={message.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-semibold text-gray-900">{message.contractor_name}</p>
+                            <p className="text-xs text-gray-600">{message.contractor_email}</p>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {new Date(message.created_at).toLocaleDateString()}
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-500">
-                          {new Date(message.created_at).toLocaleDateString()}
-                        </p>
+                        <p className="text-gray-700 text-sm">{message.message}</p>
                       </div>
-                      <p className="text-gray-700 text-sm">{message.message}</p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#F9F6F1] rounded-xl border border-gray-200 p-5">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Send a Contractor Message</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Contractors can communicate with you through NeighborLink without exposing your personal details publicly.
+                </p>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Your Name</label>
+                    <input
+                      type="text"
+                      value={messageForm.contractor_name}
+                      onChange={(e) => setMessageForm({ ...messageForm, contractor_name: e.target.value })}
+                      placeholder="Contractor name"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Your Email</label>
+                    <input
+                      type="email"
+                      value={messageForm.contractor_email}
+                      onChange={(e) => setMessageForm({ ...messageForm, contractor_email: e.target.value })}
+                      placeholder="contractor@example.com"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Message</label>
+                    <textarea
+                      value={messageForm.message}
+                      onChange={(e) => setMessageForm({ ...messageForm, message: e.target.value })}
+                      rows={4}
+                      placeholder="Send a private message to the resident about this job."
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleSendMessage(selectedRequest.id)}
+                      className="px-5 py-3 rounded-lg bg-[#1B6B4A] text-white font-semibold hover:bg-[#134E35] transition"
+                    >
+                      Send Message
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Leave a Contractor Review</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Add a rating and note for a contractor after you’ve had a conversation or completed a job.
+                </p>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Contractor Name</label>
+                    <input
+                      type="text"
+                      value={reviewData.contractor_name}
+                      onChange={(e) => setReviewData({ ...reviewData, contractor_name: e.target.value })}
+                      placeholder="John’s Plumbing"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Rating</label>
+                    <select
+                      value={reviewData.rating}
+                      onChange={(e) => setReviewData({ ...reviewData, rating: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                    >
+                      {[5, 4, 3, 2, 1].map((value) => (
+                        <option key={value} value={value}>
+                          {value} Star{value > 1 ? 's' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Review</label>
+                    <textarea
+                      value={reviewData.comment}
+                      onChange={(e) => setReviewData({ ...reviewData, comment: e.target.value })}
+                      rows={3}
+                      placeholder="Share your experience or recommendation."
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleSubmitReview(selectedRequest.id)}
+                      className="px-5 py-3 rounded-lg bg-[#1B6B4A] text-white font-semibold hover:bg-[#134E35] transition"
+                    >
+                      Submit Review
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {reviews.length > 0 && (
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Recent Contractor Reviews</h3>
+                  <div className="space-y-4">
+                    {reviews.map((review) => (
+                      <div key={review.id} className="rounded-lg bg-white p-4 border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="font-semibold text-gray-900">{review.contractor_name}</p>
+                          <p className="text-sm text-[#1B6B4A] font-semibold">{review.rating} ★</p>
+                        </div>
+                        <p className="text-gray-600 text-sm mb-2">{review.comment}</p>
+                        <p className="text-xs text-gray-400">{new Date(review.created_at).toLocaleDateString()}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
