@@ -539,215 +539,227 @@ export default function BoardPage() {
               </div>
             )}
           </div>
-        </>
-      )}
 
-      {/* Post Request Modal */}
-      {showPostForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Post a Service Request</h2>
-              <button
-                onClick={() => {
-                  setShowPostForm(false)
-                  setPhotoPreview('')
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Service Type */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Service Type *
-                  </label>
-                  <select
-                    value={formData.service_type}
-                    onChange={(e) =>
-                      setFormData({ ...formData, service_type: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                    required
+          {/* Embedded Post Request Form */}
+          {showPostForm && (
+            <div className="bg-white border-t-2 border-[#1B6B4A] py-8">
+              <div className="max-w-4xl mx-auto px-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-3xl font-bold text-gray-900">Post a Service Request</h2>
+                  <button
+                    onClick={() => {
+                      setShowPostForm(false)
+                      setPhotoPreview('')
+                    }}
+                    className="text-gray-400 hover:text-gray-600 text-3xl font-bold"
                   >
-                    <option value="">Select a service</option>
-                    {SERVICES.map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.icon} {service.label}
-                      </option>
-                    ))}
-                  </select>
+                    ×
+                  </button>
                 </div>
 
-                {/* Title */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="What do you need?"
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                    required
-                  />
-                </div>
-
-                {/* Description */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Provide details about what you need (size, scope, specific requirements)..."
-                    rows={4}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none resize-none"
-                  />
-                </div>
-
-                {/* Photos */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Photos (helps contractors understand your needs better)
-                  </label>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg"
-                  />
-                  {formData.photos.length > 0 && (
-                    <div className="flex gap-2 mt-3 flex-wrap">
-                      {formData.photos.map((photo, idx) => (
-                        <div key={idx} className="relative">
-                          <img src={photo} alt="Preview" className="w-16 h-16 rounded-lg object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removePhoto(idx)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Estimated Budget */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Estimated Budget (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.estimated_budget}
-                    onChange={(e) => setFormData({ ...formData, estimated_budget: e.target.value })}
-                    placeholder="e.g., $500-$1000"
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                  />
-                </div>
-
-                {/* Urgency */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Urgency
-                  </label>
-                  <div className="space-y-2">
-                    {['ASAP', 'This week', 'Flexible'].map((level) => (
-                      <label key={level} className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="urgency"
-                          value={level}
-                          checked={formData.urgency === level}
-                          onChange={(e) => setFormData({ ...formData, urgency: e.target.value as any })}
-                          className="w-4 h-4 accent-[#1B6B4A]"
-                        />
-                        <span className="text-sm text-gray-700">{level}</span>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Service Type */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Service Type *
                       </label>
-                    ))}
+                      <select
+                        value={formData.service_type}
+                        onChange={(e) =>
+                          setFormData({ ...formData, service_type: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                        required
+                      >
+                        <option value="">Select a service</option>
+                        {SERVICES.map((service) => (
+                          <option key={service.id} value={service.id}>
+                            {service.icon} {service.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Title */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Title *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        placeholder="What do you need?"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Description
+                      </label>
+                      <textarea
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Provide details about what you need (size, scope, specific requirements)..."
+                        rows={4}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none resize-none"
+                      />
+                    </div>
+
+                    {/* Photos */}
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Photos (helps contractors understand your needs better)
+                      </label>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg"
+                      />
+                      {formData.photos.length > 0 && (
+                        <div className="flex gap-2 mt-3 flex-wrap">
+                          {formData.photos.map((photo, idx) => (
+                            <div key={idx} className="relative">
+                              <img src={photo} alt="Preview" className="w-16 h-16 rounded-lg object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(idx)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Estimated Budget */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Estimated Budget (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.estimated_budget}
+                        onChange={(e) => setFormData({ ...formData, estimated_budget: e.target.value })}
+                        placeholder="e.g., $500-$1000"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Urgency */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Urgency
+                      </label>
+                      <div className="space-y-2">
+                        {['ASAP', 'This week', 'Flexible'].map((level) => (
+                          <label key={level} className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="urgency"
+                              value={level}
+                              checked={formData.urgency === level}
+                              onChange={(e) => setFormData({ ...formData, urgency: e.target.value as any })}
+                              className="w-4 h-4 accent-[#1B6B4A]"
+                            />
+                            <span className="text-sm text-gray-700">{level}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Location */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Location
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        placeholder="Street address or area"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Your Name */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Your Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.posted_by}
+                        onChange={(e) => setFormData({ ...formData, posted_by: e.target.value })}
+                        placeholder="John Smith"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.posted_by_email}
+                        onChange={(e) => setFormData({ ...formData, posted_by_email: e.target.value })}
+                        placeholder="john@example.com"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    {/* Phone */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
+                        Phone Number (optional)
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="(615) 555-0123"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                {/* Location */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="Street address or area"
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                  />
-                </div>
-
-                {/* Your Name */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Your Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.posted_by}
-                    onChange={(e) => setFormData({ ...formData, posted_by: e.target.value })}
-                    placeholder="John Smith"
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                    required
-                  />
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.posted_by_email}
-                    onChange={(e) => setFormData({ ...formData, posted_by_email: e.target.value })}
-                    placeholder="john@example.com"
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                    required
-                  />
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Phone Number (optional)
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="(615) 555-0123"
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                  />
-                </div>
+                  {/* Submit Button */}
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="flex-1 px-4 py-3 rounded-lg bg-[#1B6B4A] text-white font-semibold hover:bg-[#134E35] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {submitting ? 'Posting...' : 'Post Request'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPostForm(false)
+                        setPhotoPreview('')
+                      }}
+                      className="flex-1 px-4 py-3 rounded-lg border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full mt-6 px-4 py-3 rounded-lg bg-[#1B6B4A] text-white font-semibold hover:bg-[#134E35] transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? 'Posting...' : 'Post Request'}
-              </button>
-            </form>
-          </div>
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Messages Modal */}
