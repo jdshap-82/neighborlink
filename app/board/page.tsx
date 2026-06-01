@@ -23,12 +23,12 @@ const SERVICES = [
 
 interface ServiceRequest {
   id: string
-  resident_id: string
+  resident_id: string | null
   service: string
   title: string
   description: string
   urgency: 'ASAP' | 'This week' | 'Flexible'
-  status: 'active' | 'paused' | 'completed'
+  status: 'open' | 'paused' | 'completed'
   address_hint?: string
   response_count: number
   photos?: string[]
@@ -62,7 +62,6 @@ export default function BoardPage() {
     title: '',
     description: '',
     urgency: 'This week' as const,
-    resident_id: '',
     address_hint: '',
     photos: [] as string[],
   })
@@ -71,10 +70,6 @@ export default function BoardPage() {
   // Fetch requests from Supabase
   useEffect(() => {
     fetchRequests()
-    const savedResidentId = localStorage.getItem('neighborlink_resident_id')
-    if (savedResidentId) {
-      setFormData((prev) => ({ ...prev, resident_id: savedResidentId }))
-    }
   }, [])
 
   const fetchRequests = async () => {
@@ -91,12 +86,8 @@ export default function BoardPage() {
       setRequests(allRequests)
       setFilteredRequests(allRequests)
 
-      // Filter user's requests
-      const currentResidentId = localStorage.getItem('neighborlink_resident_id')
-      if (currentResidentId) {
-        const userReqs = allRequests.filter((r: any) => r.resident_id === currentResidentId)
-        setUserRequests(userReqs)
-      }
+      // No auth yet, so My Requests remains empty until resident identity is implemented
+      setUserRequests([])
     } catch (error) {
       console.error('Error fetching requests:', error)
     } finally {
@@ -119,18 +110,17 @@ export default function BoardPage() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.service || !formData.title || !formData.resident_id) {
+    if (!formData.service || !formData.title) {
       alert('Please fill in all required fields')
       return
     }
 
     try {
       setSubmitting(true)
-      localStorage.setItem('neighborlink_resident_id', formData.resident_id)
 
       const { error } = await supabase.from('requests').insert([
         {
-          resident_id: formData.resident_id,
+          resident_id: null,
           service: formData.service,
           title: formData.title,
           description: formData.description,
@@ -138,7 +128,7 @@ export default function BoardPage() {
           address_hint: formData.address_hint || null,
           photos: formData.photos.length > 0 ? formData.photos : null,
           response_count: 0,
-          status: 'active',
+          status: 'open',
         },
       ])
 
@@ -149,7 +139,6 @@ export default function BoardPage() {
         title: '',
         description: '',
         urgency: 'This week',
-        resident_id: localStorage.getItem('neighborlink_resident_id') || '',
         address_hint: '',
         photos: [],
       })
@@ -207,7 +196,7 @@ export default function BoardPage() {
   // Pause/Resume request
   const handleTogglePause = async (requestId: string, currentStatus: string) => {
     try {
-      const newStatus = currentStatus === 'paused' ? 'active' : 'paused'
+      const newStatus = currentStatus === 'paused' ? 'open' : 'paused'
       const { error } = await supabase
         .from('requests')
         .update({ status: newStatus })
@@ -225,7 +214,7 @@ export default function BoardPage() {
     try {
       const { error } = await supabase
         .from('requests')
-        .update({ created_at: new Date().toISOString(), status: 'active' })
+        .update({ created_at: new Date().toISOString(), status: 'open' })
         .eq('id', requestId)
       if (error) throw error
       fetchRequests()
@@ -340,7 +329,7 @@ export default function BoardPage() {
                       <p className="text-sm text-gray-600 mt-1">{request.description}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${request.status === 'paused' ? 'bg-gray-200 text-gray-800' : 'bg-green-100 text-green-800'}`}>
-                      {request.status === 'paused' ? 'Paused' : 'Active'}
+                      {request.status === 'paused' ? 'Paused' : 'Open'}
                     </span>
                   </div>
 
@@ -432,18 +421,18 @@ export default function BoardPage() {
                 <div className="animate-spin inline-block w-8 h-8 border-4 border-[#1B6B4A] border-t-transparent rounded-full"></div>
                 <p className="text-gray-600 mt-4">Loading requests...</p>
               </div>
-            ) : filteredRequests.filter((r) => r.status === 'active').length === 0 ? (
+            ) : filteredRequests.filter((r) => r.status === 'open').length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 text-lg">
                   {selectedCategory
-                    ? 'No active requests for this service yet. Be the first to post!'
-                    : 'No active requests posted yet. Be the first!'}
+                    ? 'No open requests for this service yet. Be the first to post!'
+                    : 'No open requests posted yet. Be the first!'}
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredRequests
-                  .filter((r) => r.status === 'active')
+                  .filter((r) => r.status === 'open')
                   .map((request) => (
                     <div
                       key={request.id}
@@ -655,19 +644,10 @@ export default function BoardPage() {
                       />
                     </div>
 
-                    {/* Email */}
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">
-                        Email *
-                      </label>
-                      <input
-                        type="email"
-                        value={formData.resident_id}
-                        onChange={(e) => setFormData({ ...formData, resident_id: e.target.value })}
-                        placeholder="john@example.com"
-                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-[#1B6B4A] focus:outline-none"
-                        required
-                      />
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-gray-500">
+                        Resident ID is currently assigned using a placeholder value until authentication is implemented.
+                      </p>
                     </div>
                   </div>
 
