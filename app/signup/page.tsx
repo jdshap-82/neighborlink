@@ -21,6 +21,9 @@ function SignupContent() {
   const [email, setEmail] = useState('')
   const [trade, setTrade] = useState('')
   const [phone, setPhone] = useState('')
+  const [preferredContact, setPreferredContact] = useState<'email' | 'phone'>('email')
+  const [newsletterOptIn, setNewsletterOptIn] = useState(true)
+  const [marketingOptIn, setMarketingOptIn] = useState(false)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('neighborlink_user')
@@ -47,8 +50,11 @@ function SignupContent() {
       role,
       name,
       email,
+      phone: phone || undefined,
+      preferred_contact: role === 'resident' ? preferredContact : undefined,
+      newsletter_opt_in: role === 'resident' ? newsletterOptIn : undefined,
+      marketing_opt_in: role === 'resident' ? marketingOptIn : undefined,
       trade: role === 'contractor' ? trade : undefined,
-      phone: role === 'contractor' ? phone : undefined,
     }
 
     localStorage.setItem('neighborlink_user', JSON.stringify(user))
@@ -97,6 +103,52 @@ function SignupContent() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-2">Phone</label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(615) 555-0123"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-[#1B6B4A] focus:outline-none"
+            />
+          </div>
+
+          {role === 'resident' && (
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Preferred Contact</label>
+                <select
+                  value={preferredContact}
+                  onChange={(e) => setPreferredContact(e.target.value as 'email' | 'phone')}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-[#1B6B4A] focus:outline-none"
+                >
+                  <option value="email">Email</option>
+                  <option value="phone">Phone</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-3">
+                <label className="inline-flex items-center gap-3 text-sm text-gray-900">
+                  <input
+                    type="checkbox"
+                    checked={newsletterOptIn}
+                    onChange={(e) => setNewsletterOptIn(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-[#1B6B4A] focus:ring-[#1B6B4A]"
+                  />
+                  Subscribe to newsletter
+                </label>
+                <label className="inline-flex items-center gap-3 text-sm text-gray-900">
+                  <input
+                    type="checkbox"
+                    checked={marketingOptIn}
+                    onChange={(e) => setMarketingOptIn(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-[#1B6B4A] focus:ring-[#1B6B4A]"
+                  />
+                  Opt in to marketing emails
+                </label>
+              </div>
+            </>
+          )}
+
           {role === 'contractor' && (
             <>
               <div>
@@ -105,15 +157,6 @@ function SignupContent() {
                   value={trade}
                   onChange={(e) => setTrade(e.target.value)}
                   placeholder="Plumbing, Electrical, Lawn Care..."
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-[#1B6B4A] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">Phone</label>
-                <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="(615) 555-0123"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-[#1B6B4A] focus:outline-none"
                 />
               </div>

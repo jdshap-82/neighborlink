@@ -11,6 +11,9 @@ interface User {
   email: string
   trade?: string
   phone?: string
+  preferred_contact?: 'email' | 'phone'
+  newsletter_opt_in?: boolean
+  marketing_opt_in?: boolean
 }
 
 export default function AccountPage() {
@@ -70,6 +73,23 @@ export default function AccountPage() {
           </div>
         </div>
 
+        {user.role === 'resident' && (
+          <div className="rounded-3xl bg-white border border-gray-200 p-10 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Manage your service requests</h2>
+                <p className="text-gray-600 mt-2">Edit or delete your open requests from the board to keep your needs up to date.</p>
+              </div>
+              <Link
+                href="/board"
+                className="rounded-2xl bg-[#1B6B4A] px-5 py-3 text-center text-sm font-semibold text-white hover:bg-[#134E35] transition"
+              >
+                View My Requests
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-3xl bg-white border border-gray-200 p-10 shadow-sm">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-4">
@@ -97,6 +117,26 @@ export default function AccountPage() {
                   <div className="rounded-3xl bg-[#F9F6F1] p-6 border border-gray-200">
                     <p className="text-sm text-gray-500">Phone</p>
                     <p className="mt-2 text-lg font-semibold text-gray-900">{user.phone || 'Not specified'}</p>
+                  </div>
+                </>
+              )}
+              {user.role === 'resident' && (
+                <>
+                  <div className="rounded-3xl bg-[#F9F6F1] p-6 border border-gray-200">
+                    <p className="text-sm text-gray-500">Phone</p>
+                    <p className="mt-2 text-lg font-semibold text-gray-900">{user.phone || 'Not specified'}</p>
+                  </div>
+                  <div className="rounded-3xl bg-[#F9F6F1] p-6 border border-gray-200">
+                    <p className="text-sm text-gray-500">Preferred Contact</p>
+                    <p className="mt-2 text-lg font-semibold text-gray-900 capitalize">{user.preferred_contact || 'Email'}</p>
+                  </div>
+                  <div className="rounded-3xl bg-[#F9F6F1] p-6 border border-gray-200">
+                    <p className="text-sm text-gray-500">Newsletter Subscription</p>
+                    <p className="mt-2 text-lg font-semibold text-gray-900">{user.newsletter_opt_in ? 'Subscribed' : 'Unsubscribed'}</p>
+                  </div>
+                  <div className="rounded-3xl bg-[#F9F6F1] p-6 border border-gray-200">
+                    <p className="text-sm text-gray-500">Marketing Emails</p>
+                    <p className="mt-2 text-lg font-semibold text-gray-900">{user.marketing_opt_in ? 'Opted in' : 'Opted out'}</p>
                   </div>
                 </>
               )}
