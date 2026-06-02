@@ -525,6 +525,8 @@ export default function BoardPage() {
             onClick={() => {
               if (user?.role === 'resident') {
                 setShowPostForm(true)
+              } else if (user?.role === 'admin' || user?.role === 'contractor') {
+                alert('Log in as a resident to post a request.')
               } else {
                 router.push('/login?role=resident')
               }
