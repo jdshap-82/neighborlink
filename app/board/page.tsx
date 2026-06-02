@@ -78,6 +78,7 @@ export default function BoardPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [reviews, setReviews] = useState<Review[]>([])
   const [photoPreview, setPhotoPreview] = useState<string>('')
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     service: '',
     title: '',
@@ -164,6 +165,24 @@ export default function BoardPage() {
     }
   }
 
+  const handleEditRequest = (request: ServiceRequest) => {
+    setEditingRequestId(request.id)
+    setFormData({
+      service: request.service,
+      title: request.title,
+      description: request.description,
+      urgency: request.urgency,
+      address_hint: request.address_hint || '',
+      contact_name: '',
+      contact_email: '',
+      contact_phone: '',
+      contact_note: '',
+      photos: request.photos || [],
+    })
+    setPhotoPreview(request.photos?.[0] || '')
+    setShowPostForm(true)
+  }
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -187,19 +206,37 @@ export default function BoardPage() {
       if (formData.contact_note) contactInfoParts.push(`Note: ${formData.contact_note}`)
       const contactInfo = contactInfoParts.length > 0 ? `\n\n${contactInfoParts.join('\n')}` : ''
 
-      const { error } = await supabase.from('requests').insert([
-        {
-          resident_id: user.id,
+      let error = null
+      if (editingRequestId) {
+        const updatePayload = {
           service: formData.service,
           title: formData.title,
           description: `${formData.description}${contactInfo}`.trim(),
           urgency: formData.urgency,
           address_hint: formData.address_hint || null,
           photos: formData.photos.length > 0 ? formData.photos : null,
-          response_count: 0,
-          status: 'open',
-        },
-      ])
+        }
+        const updateResult = await supabase
+          .from('requests')
+          .update(updatePayload)
+          .eq('id', editingRequestId)
+        error = updateResult.error
+      } else {
+        const insertResult = await supabase.from('requests').insert([
+          {
+            resident_id: user.id,
+            service: formData.service,
+            title: formData.title,
+            description: `${formData.description}${contactInfo}`.trim(),
+            urgency: formData.urgency,
+            address_hint: formData.address_hint || null,
+            photos: formData.photos.length > 0 ? formData.photos : null,
+            response_count: 0,
+            status: 'open',
+          },
+        ])
+        error = insertResult.error
+      }
 
       if (error) throw error
 
@@ -217,6 +254,7 @@ export default function BoardPage() {
       })
       setPhotoPreview('')
       setShowPostForm(false)
+      setEditingRequestId(null)
       fetchRequests()
     } catch (error) {
       console.error('Error posting request:', error)
@@ -505,6 +543,12 @@ export default function BoardPage() {
                       💬 Messages
                     </button>
                     <button
+                      onClick={() => handleEditRequest(request)}
+                      className="px-3 py-2 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-sm hover:bg-indigo-200 transition"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
                       onClick={() => handleTogglePause(request.id, request.status)}
                       className={`px-3 py-2 rounded-lg font-semibold text-sm transition ${
                         request.status === 'paused'
@@ -665,11 +709,14 @@ export default function BoardPage() {
             <div className="bg-white border-t-2 border-[#1B6B4A] py-8">
               <div className="max-w-4xl mx-auto px-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-3xl font-bold text-gray-900">Post a Service Request</h2>
+                  <h2 className="text-3xl font-bold text-gray-900">
+                    {editingRequestId ? 'Edit Service Request' : 'Post a Service Request'}
+                  </h2>
                   <button
                     onClick={() => {
                       setShowPostForm(false)
                       setPhotoPreview('')
+                      setEditingRequestId(null)
                     }}
                     className="text-gray-400 hover:text-gray-600 text-3xl font-bold"
                   >
@@ -863,13 +910,14 @@ export default function BoardPage() {
                       disabled={submitting}
                       className="flex-1 px-4 py-3 rounded-lg bg-[#1B6B4A] text-white font-semibold hover:bg-[#134E35] transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {submitting ? 'Posting...' : 'Post Request'}
+                      {submitting ? (editingRequestId ? 'Saving...' : 'Posting...') : (editingRequestId ? 'Save Changes' : 'Post Request')}
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         setShowPostForm(false)
                         setPhotoPreview('')
+                        setEditingRequestId(null)
                       }}
                       className="flex-1 px-4 py-3 rounded-lg border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 transition"
                     >
