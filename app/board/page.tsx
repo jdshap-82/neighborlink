@@ -83,7 +83,7 @@ export default function BoardPage() {
     service: '',
     title: '',
     description: '',
-    urgency: 'This week' as const,
+    urgency: 'This week' as 'ASAP' | 'This week' | 'Flexible',
     address_hint: '',
     contact_name: '',
     contact_email: '',
