@@ -38,7 +38,7 @@ function SignupContent() {
     }
   }, [router, searchParams])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name || !email) {
       alert('Please enter both name and email')
@@ -58,6 +58,14 @@ function SignupContent() {
     }
 
     localStorage.setItem('neighborlink_user', JSON.stringify(user))
+
+    // Persist to Supabase so admin can manage users
+    await fetch('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user),
+    }).catch(() => {/* non-blocking — local session still works */})
+
     router.push('/account')
   }
 

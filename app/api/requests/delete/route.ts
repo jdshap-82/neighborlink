@@ -14,7 +14,7 @@ function getAdminSupabase() {
   })
 }
 
-async function checkMessagesTable(adminSupabase: ReturnType<typeof createClient>) {
+async function checkMessagesTable(adminSupabase: any) {
   const { error } = await adminSupabase
     .from('messages')
     .select('id', { head: true, count: 'exact' })
