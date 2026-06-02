@@ -354,13 +354,17 @@ export default function BoardPage() {
     }))
   }
 
-  // Delete request — delete messages first to avoid FK constraint
+  // Delete request — uses server route to bypass Supabase RLS
   const handleDeleteRequest = async (requestId: string) => {
     if (!confirm('Are you sure you want to delete this request?')) return
     try {
-      await supabase.from('messages').delete().eq('request_id', requestId)
-      const { error } = await supabase.from('requests').delete().eq('id', requestId)
-      if (error) throw error
+      const res = await fetch('/api/requests/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: requestId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Delete failed')
       fetchRequests()
     } catch (error) {
       console.error('Error deleting request:', error)
