@@ -156,7 +156,11 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      if (!res.ok) { alert('Delete failed'); return }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert('Delete failed: ' + (data.error || res.statusText))
+        return
+      }
       await fetchRequests()
     })
 

@@ -363,8 +363,8 @@ export default function BoardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: requestId }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Delete failed')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || res.statusText || 'Delete failed')
       fetchRequests()
     } catch (error) {
       console.error('Error deleting request:', error)
