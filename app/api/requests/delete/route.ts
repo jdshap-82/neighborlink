@@ -14,9 +14,14 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Missing request id' }, { status: 400 })
   }
 
-  const db = getAdminClient()
+  let db: ReturnType<typeof getAdminClient>
+  try {
+    db = getAdminClient()
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Server config error: ' + e.message }, { status: 500 })
+  }
 
-  // Delete related messages first (ignore error if messages table is empty or row missing)
+  // Delete related messages first (ignore error if none exist)
   await db.from('messages').delete().eq('request_id', id)
 
   // Delete the request itself
