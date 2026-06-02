@@ -40,7 +40,7 @@ function LoginContent() {
     }
   }, [router, searchParams])
 
-  const handleUserLogin = (e: React.FormEvent) => {
+  const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name || !email) {
       alert('Please enter both name and email')
@@ -49,6 +49,13 @@ function LoginContent() {
 
     const user = { id: createId(), role, name, email }
     localStorage.setItem('neighborlink_user', JSON.stringify(user))
+
+    await fetch('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user),
+    }).catch(() => {})
+
     router.push('/account')
   }
 

@@ -227,9 +227,13 @@ export default function BoardPage() {
           .eq('id', editingRequestId)
         error = updateResult.error
       } else {
-        const insertResult = await supabase.from('requests').insert([
-          {
+        const res = await fetch('/api/requests/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             resident_id: user.id,
+            resident_name: user.name,
+            resident_email: user.email,
             service: formData.service,
             title: formData.title,
             description: `${formData.description}${contactInfo}`.trim(),
@@ -238,9 +242,12 @@ export default function BoardPage() {
             photos: formData.photos.length > 0 ? formData.photos : null,
             response_count: 0,
             status: 'pending',
-          },
-        ])
-        error = insertResult.error
+          }),
+        })
+        if (!res.ok) {
+          const data = await res.json()
+          error = new Error(data.error ?? 'Failed to post request')
+        }
       }
 
       if (error) throw error
