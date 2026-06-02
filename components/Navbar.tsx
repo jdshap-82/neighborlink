@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 type User = {
   id: string
-  role: 'resident' | 'contractor'
+  role: 'resident' | 'contractor' | 'admin'
   name: string
   email: string
 }
@@ -32,34 +32,48 @@ export default function Navbar() {
         <span>🏘️</span> NeighborLink
       </Link>
       <div className="flex flex-wrap gap-3 items-center">
-        <Link
-          href="/board"
-          className="px-4 py-2 rounded-lg border-2 border-[#1B6B4A] text-[#1B6B4A] font-semibold text-sm hover:bg-[#E6F4ED] transition"
-        >
-          I'm a Resident
-        </Link>
-        <Link
-          href="/join"
-          className="px-4 py-2 rounded-lg bg-[#1B6B4A] text-white font-semibold text-sm hover:bg-[#134E35] transition"
-        >
-          I'm a Contractor
-        </Link>
-        {user ? (
+        {user?.role !== 'admin' && (
           <>
             <Link
-              href="/account"
-              className="px-4 py-2 rounded-lg border border-[#1B6B4A] text-[#1B6B4A] text-sm font-semibold hover:bg-[#E6F4ED] transition"
+              href="/board"
+              className="px-4 py-2 rounded-lg border-2 border-[#1B6B4A] text-[#1B6B4A] font-semibold text-sm hover:bg-[#E6F4ED] transition"
             >
-              My Account
+              I'm a Resident
             </Link>
-            {user.role === 'contractor' ? (
+            <Link
+              href="/join"
+              className="px-4 py-2 rounded-lg bg-[#1B6B4A] text-white font-semibold text-sm hover:bg-[#134E35] transition"
+            >
+              I'm a Contractor
+            </Link>
+          </>
+        )}
+        {user ? (
+          <>
+            {user.role === 'admin' && (
+              <Link
+                href="/admin"
+                className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition"
+              >
+                Admin Dashboard
+              </Link>
+            )}
+            {user.role === 'contractor' && (
               <Link
                 href="/contractor"
                 className="px-4 py-2 rounded-lg border border-[#1B6B4A] text-[#1B6B4A] text-sm font-semibold hover:bg-[#E6F4ED] transition"
               >
                 Dashboard
               </Link>
-            ) : null}
+            )}
+            {user.role !== 'admin' && (
+              <Link
+                href="/account"
+                className="px-4 py-2 rounded-lg border border-[#1B6B4A] text-[#1B6B4A] text-sm font-semibold hover:bg-[#E6F4ED] transition"
+              >
+                My Account
+              </Link>
+            )}
             <span className="hidden md:inline text-sm text-gray-600">Signed in as {user.name}</span>
             <button
               onClick={handleLogout}

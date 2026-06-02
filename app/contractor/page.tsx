@@ -30,10 +30,14 @@ interface ServiceRequest {
   title: string
   description: string
   urgency: 'ASAP' | 'This week' | 'Flexible'
-  status: 'open' | 'paused' | 'completed'
+  status: 'pending' | 'open' | 'paused' | 'in_progress' | 'archived' | 'denied'
   address_hint?: string
   response_count: number
   photos?: string[]
+  accepted_contractor_name?: string
+  accepted_contractor_email?: string
+  contractor_complete?: boolean
+  resident_complete?: boolean
   created_at: string
   updated_at: string
 }
@@ -57,7 +61,7 @@ interface Review {
 
 interface User {
   id: string
-  role: 'resident' | 'contractor'
+  role: 'resident' | 'contractor' | 'admin'
   name: string
   email: string
   trade?: string
@@ -66,15 +70,13 @@ interface User {
 
 export default function ContractorDashboardPage() {
   const [user, setUser] = useState<User | null>(null)
-  const [requests, setRequests] = useState<ServiceRequest[]>([])
+  const [openRequests, setOpenRequests] = useState<ServiceRequest[]>([])
+  const [activeJobs, setActiveJobs] = useState<ServiceRequest[]>([])
   const [messages, setMessages] = useState<Message[]>([])
   const [reviews, setReviews] = useState<Review[]>([])
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null)
   const [showMessageModal, setShowMessageModal] = useState(false)
-  const [messageForm, setMessageForm] = useState({
-    subject: '',
-    message: '',
-  })
+  const [messageForm, setMessageForm] = useState({ subject: '', message: '' })
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -85,54 +87,37 @@ export default function ContractorDashboardPage() {
       setUser(parsed)
       if (parsed.role !== 'contractor') {
         router.push('/login?role=contractor')
+        return
       }
-      fetchMessages(parsed.email)
+      fetchData(parsed.email)
+    } else {
+      setLoading(false)
     }
-    fetchRequests()
     loadReviews()
   }, [])
 
-  const fetchRequests = async () => {
+  const fetchData = async (email: string) => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('requests')
-        .select('*')
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setRequests(data || [])
+      const [openResult, activeResult, msgResult] = await Promise.all([
+        supabase.from('requests').select('*').eq('status', 'open').order('created_at', { ascending: false }),
+        supabase.from('requests').select('*').eq('status', 'in_progress').eq('accepted_contractor_email', email),
+        supabase.from('messages').select('*').eq('contractor_email', email).order('created_at', { ascending: false }),
+      ])
+      setOpenRequests(openResult.data || [])
+      setActiveJobs(activeResult.data || [])
+      setMessages(msgResult.data || [])
     } catch (error) {
-      console.error('Error fetching requests:', error)
+      console.error('Error fetching data:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchMessages = async (email: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('contractor_email', email)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setMessages(data || [])
-    } catch (error) {
-      console.error('Error fetching contractor messages:', error)
     }
   }
 
   const loadReviews = () => {
     const storedReviews = localStorage.getItem('neighborlink_reviews')
     if (storedReviews) {
-      try {
-        setReviews(JSON.parse(storedReviews))
-      } catch {
-        setReviews([])
-      }
+      try { setReviews(JSON.parse(storedReviews)) } catch { setReviews([]) }
     }
   }
 
@@ -148,7 +133,6 @@ export default function ContractorDashboardPage() {
       alert('Please enter a subject and message.')
       return
     }
-
     try {
       const { error } = await supabase.from('messages').insert([
         {
@@ -159,7 +143,7 @@ export default function ContractorDashboardPage() {
         },
       ])
       if (error) throw error
-      await fetchMessages(user.email)
+      await fetchData(user.email)
       setShowMessageModal(false)
     } catch (error) {
       console.error('Error sending message:', error)
@@ -167,13 +151,37 @@ export default function ContractorDashboardPage() {
     }
   }
 
+  const handleContractorMarkComplete = async (requestId: string) => {
+    if (!confirm('Mark this job as complete on your end?')) return
+    try {
+      const job = activeJobs.find((j) => j.id === requestId)
+      const updates: Record<string, unknown> = { contractor_complete: true }
+      if (job?.resident_complete) {
+        updates.status = 'archived'
+      }
+      const { error } = await supabase.from('requests').update(updates).eq('id', requestId)
+      if (error) throw error
+      if (user) fetchData(user.email)
+      alert(
+        job?.resident_complete
+          ? 'Job archived — both parties confirmed completion.'
+          : 'Marked complete on your end. Waiting for resident to confirm.'
+      )
+    } catch (error) {
+      console.error('Error marking complete:', error)
+      alert('Error updating job: ' + (error as any)?.message)
+    }
+  }
+
+  const getServiceIcon = (serviceId: string) => SERVICES.find((s) => s.id === serviceId)?.icon || '📋'
+
   const filteredReviews = user
-    ? reviews.filter((review) => review.contractor_name.toLowerCase().includes(user.name.toLowerCase()))
+    ? reviews.filter((r) => r.contractor_name.toLowerCase().includes(user.name.toLowerCase()))
     : []
 
   const averageRating =
     filteredReviews.length > 0
-      ? (filteredReviews.reduce((sum, review) => sum + review.rating, 0) / filteredReviews.length).toFixed(1)
+      ? (filteredReviews.reduce((sum, r) => sum + r.rating, 0) / filteredReviews.length).toFixed(1)
       : null
 
   if (!user) {
@@ -181,7 +189,7 @@ export default function ContractorDashboardPage() {
       <div className="min-h-screen bg-[#F9F6F1] flex items-center justify-center px-6 py-12">
         <div className="bg-white rounded-3xl border border-gray-200 p-10 text-center max-w-xl">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Contractor Dashboard</h1>
-          <p className="text-gray-600 mb-6">Please log in to access your contractor dashboard and view messages, requests, and ratings.</p>
+          <p className="text-gray-600 mb-6">Please log in to access your contractor dashboard.</p>
           <Link href="/login?role=contractor" className="px-6 py-3 rounded-xl bg-[#1B6B4A] text-white font-semibold hover:bg-[#134E35] transition">
             Log In as Contractor
           </Link>
@@ -193,31 +201,78 @@ export default function ContractorDashboardPage() {
   return (
     <div className="min-h-screen bg-[#F9F6F1] pb-12">
       <div className="max-w-7xl mx-auto px-6 pt-10">
+        {/* Header stats */}
         <div className="flex flex-col lg:flex-row items-start justify-between gap-6 mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Contractor Dashboard</h1>
             <p className="text-gray-600 max-w-2xl">
-              Welcome back, {user.name}. Here are the latest open requests, your in-app messages, and your contractor ratings.
+              Welcome back, {user.name}. Manage your active jobs, browse open requests, and track your messages.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm">
               <p className="text-sm uppercase tracking-wide text-gray-500">Open Requests</p>
-              <p className="text-3xl font-bold text-[#1B6B4A] mt-2">{requests.length}</p>
+              <p className="text-3xl font-bold text-[#1B6B4A] mt-2">{openRequests.length}</p>
             </div>
             <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-wide text-gray-500">Messages Sent</p>
-              <p className="text-3xl font-bold text-[#1B6B4A] mt-2">{messages.length}</p>
+              <p className="text-sm uppercase tracking-wide text-gray-500">Active Jobs</p>
+              <p className="text-3xl font-bold text-blue-600 mt-2">{activeJobs.length}</p>
             </div>
-            <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm col-span-1 sm:col-span-2">
-              <p className="text-sm uppercase tracking-wide text-gray-500">Average Rating</p>
-              <p className="text-3xl font-bold text-[#1B6B4A] mt-2">{averageRating ?? 'No reviews yet'}</p>
+            <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm col-span-2 sm:col-span-1">
+              <p className="text-sm uppercase tracking-wide text-gray-500">Avg Rating</p>
+              <p className="text-3xl font-bold text-[#1B6B4A] mt-2">{averageRating ?? '—'}</p>
             </div>
           </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
           <section className="space-y-6">
+            {/* Active Jobs */}
+            <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">My Active Jobs</h2>
+                  <p className="text-sm text-gray-500">Jobs you've been accepted for.</p>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">In Progress</span>
+              </div>
+              {activeJobs.length === 0 ? (
+                <p className="text-gray-500 text-sm">No active jobs yet. Message a resident to get started.</p>
+              ) : (
+                <div className="space-y-4">
+                  {activeJobs.map((job) => (
+                    <div key={job.id} className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-4">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{getServiceIcon(job.service)}</span>
+                          <h3 className="text-base font-bold text-gray-900">{job.title}</h3>
+                        </div>
+                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 whitespace-nowrap">In Progress</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">{job.description}</p>
+                      {job.address_hint && <p className="text-sm text-gray-500 mb-3">📍 {job.address_hint}</p>}
+                      {job.resident_complete && !job.contractor_complete && (
+                        <p className="text-xs text-yellow-700 mb-3 font-semibold">Resident has marked complete — confirm your side to archive.</p>
+                      )}
+                      {!job.contractor_complete ? (
+                        <button
+                          onClick={() => handleContractorMarkComplete(job.id)}
+                          className="inline-flex items-center gap-2 rounded-full bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition"
+                        >
+                          ✅ Mark Complete
+                        </button>
+                      ) : (
+                        <span className="inline-block rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
+                          You marked complete — waiting for resident
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Open Requests */}
             <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -226,24 +281,26 @@ export default function ContractorDashboardPage() {
                 </div>
                 <span className="inline-flex items-center rounded-full bg-[#E6F4ED] px-3 py-1 text-xs font-semibold text-[#1B6B4A]">Live</span>
               </div>
-
               {loading ? (
                 <div className="text-center py-10">
                   <div className="animate-spin inline-block w-8 h-8 border-4 border-[#1B6B4A] border-t-transparent rounded-full"></div>
-                  <p className="text-gray-600 mt-4">Loading requests…</p>
+                  <p className="text-gray-600 mt-4">Loading…</p>
                 </div>
-              ) : requests.length === 0 ? (
-                <p className="text-gray-500">No open requests available right now. Check back soon.</p>
+              ) : openRequests.length === 0 ? (
+                <p className="text-gray-500">No open requests available right now.</p>
               ) : (
                 <div className="space-y-4">
-                  {requests.map((request) => (
+                  {openRequests.map((request) => (
                     <div key={request.id} className="rounded-3xl border border-gray-200 p-4 hover:shadow-lg transition">
                       <div className="flex items-start justify-between gap-4 mb-3">
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-gray-500">{request.service}</p>
-                          <h3 className="text-lg font-semibold text-gray-900">{request.title}</h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{getServiceIcon(request.service)}</span>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-gray-500">{request.service}</p>
+                            <h3 className="text-base font-semibold text-gray-900">{request.title}</h3>
+                          </div>
                         </div>
-                        <span className="rounded-full bg-[#E6F4ED] px-3 py-1 text-sm font-semibold text-[#1B6B4A]">
+                        <span className="rounded-full bg-[#E6F4ED] px-3 py-1 text-sm font-semibold text-[#1B6B4A] whitespace-nowrap">
                           {request.urgency}
                         </span>
                       </div>
@@ -261,6 +318,7 @@ export default function ContractorDashboardPage() {
               )}
             </div>
 
+            {/* Reviews */}
             <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -270,7 +328,7 @@ export default function ContractorDashboardPage() {
                 <span className="text-sm text-gray-500">{filteredReviews.length} reviews</span>
               </div>
               {filteredReviews.length === 0 ? (
-                <p className="text-gray-500">No contractor reviews yet. Encourage residents to leave feedback after a job.</p>
+                <p className="text-gray-500">No reviews yet.</p>
               ) : (
                 <div className="space-y-4">
                   {filteredReviews.map((review) => (
@@ -289,16 +347,17 @@ export default function ContractorDashboardPage() {
           </section>
 
           <section className="space-y-6">
+            {/* Messages */}
             <div className="rounded-3xl bg-white border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Your Messages</h2>
-                  <p className="text-sm text-gray-500">Messages you’ve sent to residents through NeighborLink.</p>
+                  <p className="text-sm text-gray-500">Messages you've sent to residents.</p>
                 </div>
                 <span className="text-sm text-gray-500">{messages.length}</span>
               </div>
               {messages.length === 0 ? (
-                <p className="text-gray-500">No messages sent yet. Message a request to begin the conversation.</p>
+                <p className="text-gray-500">No messages sent yet.</p>
               ) : (
                 <div className="space-y-4">
                   {messages.map((message) => (
@@ -317,6 +376,7 @@ export default function ContractorDashboardPage() {
         </div>
       </div>
 
+      {/* Message Modal */}
       {showMessageModal && selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-2xl rounded-3xl bg-white border border-gray-200 p-6 shadow-xl">
@@ -325,12 +385,7 @@ export default function ContractorDashboardPage() {
                 <h2 className="text-2xl font-bold text-gray-900">Message Resident</h2>
                 <p className="text-sm text-gray-500">Request: {selectedRequest.title}</p>
               </div>
-              <button
-                onClick={() => setShowMessageModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-3xl font-bold"
-              >
-                ×
-              </button>
+              <button onClick={() => setShowMessageModal(false)} className="text-gray-400 hover:text-gray-600 text-3xl font-bold">×</button>
             </div>
             <div className="space-y-4">
               <div>
@@ -354,14 +409,12 @@ export default function ContractorDashboardPage() {
               </div>
               <div className="flex justify-end gap-3">
                 <button
-                  type="button"
                   onClick={() => setShowMessageModal(false)}
                   className="rounded-2xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition"
                 >
                   Cancel
                 </button>
                 <button
-                  type="button"
                   onClick={handleSendMessage}
                   className="rounded-2xl bg-[#1B6B4A] px-5 py-3 text-sm font-semibold text-white hover:bg-[#134E35] transition"
                 >

@@ -30,10 +30,14 @@ interface ServiceRequest {
   title: string
   description: string
   urgency: 'ASAP' | 'This week' | 'Flexible'
-  status: 'open' | 'paused' | 'completed'
+  status: 'pending' | 'open' | 'paused' | 'in_progress' | 'archived' | 'denied'
   address_hint?: string
   response_count: number
   photos?: string[]
+  accepted_contractor_name?: string
+  accepted_contractor_email?: string
+  contractor_complete?: boolean
+  resident_complete?: boolean
   created_at: string
   updated_at: string
 }
@@ -181,6 +185,7 @@ export default function BoardPage() {
     })
     setPhotoPreview(request.photos?.[0] || '')
     setShowPostForm(true)
+    setShowMyRequests(false)
   }
 
   // Handle form submission
@@ -232,7 +237,7 @@ export default function BoardPage() {
             address_hint: formData.address_hint || null,
             photos: formData.photos.length > 0 ? formData.photos : null,
             response_count: 0,
-            status: 'open',
+            status: 'pending',
           },
         ])
         error = insertResult.error
@@ -349,16 +354,17 @@ export default function BoardPage() {
     }))
   }
 
-  // Delete request
+  // Delete request — delete messages first to avoid FK constraint
   const handleDeleteRequest = async (requestId: string) => {
     if (!confirm('Are you sure you want to delete this request?')) return
     try {
+      await supabase.from('messages').delete().eq('request_id', requestId)
       const { error } = await supabase.from('requests').delete().eq('id', requestId)
       if (error) throw error
       fetchRequests()
     } catch (error) {
       console.error('Error deleting request:', error)
-      alert('Error deleting request')
+      alert('Error deleting request: ' + (error as any)?.message)
     }
   }
 
@@ -394,6 +400,50 @@ export default function BoardPage() {
     }
   }
 
+  // Accept a contractor — moves job to in_progress
+  const handleAcceptContractor = async (requestId: string, contractorName: string, contractorEmail: string) => {
+    if (!confirm(`Accept ${contractorName} for this job? The status will change to In Progress.`)) return
+    try {
+      const { error } = await supabase
+        .from('requests')
+        .update({
+          status: 'in_progress',
+          accepted_contractor_name: contractorName,
+          accepted_contractor_email: contractorEmail,
+        })
+        .eq('id', requestId)
+      if (error) throw error
+      fetchRequests()
+      setShowMessages(false)
+    } catch (error) {
+      console.error('Error accepting contractor:', error)
+      alert('Error accepting contractor: ' + (error as any)?.message)
+    }
+  }
+
+  // Resident marks their side complete; archives if contractor also confirmed
+  const handleResidentMarkComplete = async (requestId: string) => {
+    if (!confirm('Mark this job as complete on your end?')) return
+    try {
+      const request = requests.find((r) => r.id === requestId)
+      const updates: Record<string, unknown> = { resident_complete: true }
+      if (request?.contractor_complete) {
+        updates.status = 'archived'
+      }
+      const { error } = await supabase.from('requests').update(updates).eq('id', requestId)
+      if (error) throw error
+      fetchRequests()
+      alert(
+        request?.contractor_complete
+          ? 'Job archived — both parties confirmed completion.'
+          : 'Marked complete on your end. Waiting for contractor to confirm.'
+      )
+    } catch (error) {
+      console.error('Error marking complete:', error)
+      alert('Error updating request: ' + (error as any)?.message)
+    }
+  }
+
   // Fetch messages for a request
   const handleViewMessages = async (request: ServiceRequest) => {
     setSelectedRequest(request)
@@ -408,6 +458,30 @@ export default function BoardPage() {
       setShowMessages(true)
     } catch (error) {
       console.error('Error fetching messages:', error)
+    }
+  }
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800'
+      case 'open': return 'bg-green-100 text-green-800'
+      case 'paused': return 'bg-gray-200 text-gray-700'
+      case 'in_progress': return 'bg-blue-100 text-blue-800'
+      case 'archived': return 'bg-gray-100 text-gray-500'
+      case 'denied': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Pending Approval'
+      case 'open': return 'Open'
+      case 'paused': return 'Paused'
+      case 'in_progress': return 'In Progress'
+      case 'archived': return 'Archived'
+      case 'denied': return 'Denied'
+      default: return status
     }
   }
 
@@ -516,10 +590,10 @@ export default function BoardPage() {
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-bold text-gray-900">{request.title}</h3>
-                      <p className="text-sm text-gray-600 mt-1">{request.description}</p>
+                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">{request.description}</p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${request.status === 'paused' ? 'bg-gray-200 text-gray-800' : 'bg-green-100 text-green-800'}`}>
-                      {request.status === 'paused' ? 'Paused' : 'Open'}
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ml-3 ${getStatusBadgeClass(request.status)}`}>
+                      {getStatusLabel(request.status)}
                     </span>
                   </div>
 
@@ -529,47 +603,76 @@ export default function BoardPage() {
                         <span className="font-semibold">Location:</span> {request.address_hint}
                       </p>
                     )}
-                    <p className="text-gray-700">
-                      <span className="font-semibold">Contractor Responses:</span> {request.response_count}
-                    </p>
+                    {request.status === 'in_progress' && request.accepted_contractor_name && (
+                      <p className="text-blue-700 font-semibold">
+                        Contractor: {request.accepted_contractor_name}
+                        {request.resident_complete && (
+                          <span className="ml-2 text-xs font-normal text-yellow-600">(Waiting for contractor confirmation)</span>
+                        )}
+                      </p>
+                    )}
+                    {request.status !== 'in_progress' && (
+                      <p className="text-gray-700">
+                        <span className="font-semibold">Responses:</span> {request.response_count}
+                      </p>
+                    )}
+                    {request.status === 'pending' && (
+                      <p className="text-yellow-700 text-xs">Your request is awaiting admin approval before it appears on the board.</p>
+                    )}
                   </div>
 
-                  {/* Action Buttons */}
+                  {/* Action Buttons — vary by status */}
                   <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
-                    <button
-                      onClick={() => handleViewMessages(request)}
-                      className="px-3 py-2 rounded-lg bg-blue-100 text-blue-700 font-semibold text-sm hover:bg-blue-200 transition"
-                    >
-                      💬 Messages
-                    </button>
-                    <button
-                      onClick={() => handleEditRequest(request)}
-                      className="px-3 py-2 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-sm hover:bg-indigo-200 transition"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleTogglePause(request.id, request.status)}
-                      className={`px-3 py-2 rounded-lg font-semibold text-sm transition ${
-                        request.status === 'paused'
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                      }`}
-                    >
-                      {request.status === 'paused' ? '▶️ Resume' : '⏸️ Pause'}
-                    </button>
-                    <button
-                      onClick={() => handleRepublish(request.id)}
-                      className="px-3 py-2 rounded-lg bg-purple-100 text-purple-700 font-semibold text-sm hover:bg-purple-200 transition"
-                    >
-                      🔄 Republish
-                    </button>
-                    <button
-                      onClick={() => handleDeleteRequest(request.id)}
-                      className="px-3 py-2 rounded-lg bg-red-100 text-red-700 font-semibold text-sm hover:bg-red-200 transition"
-                    >
-                      🗑️ Delete
-                    </button>
+                    {(request.status === 'open' || request.status === 'paused' || request.status === 'in_progress') && (
+                      <button
+                        onClick={() => handleViewMessages(request)}
+                        className="px-3 py-2 rounded-lg bg-blue-100 text-blue-700 font-semibold text-sm hover:bg-blue-200 transition"
+                      >
+                        💬 Messages
+                      </button>
+                    )}
+                    {(request.status === 'open' || request.status === 'paused') && (
+                      <>
+                        <button
+                          onClick={() => handleEditRequest(request)}
+                          className="px-3 py-2 rounded-lg bg-indigo-100 text-indigo-700 font-semibold text-sm hover:bg-indigo-200 transition"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleTogglePause(request.id, request.status)}
+                          className={`px-3 py-2 rounded-lg font-semibold text-sm transition ${
+                            request.status === 'paused'
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                              : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                          }`}
+                        >
+                          {request.status === 'paused' ? '▶️ Resume' : '⏸️ Pause'}
+                        </button>
+                        <button
+                          onClick={() => handleRepublish(request.id)}
+                          className="px-3 py-2 rounded-lg bg-purple-100 text-purple-700 font-semibold text-sm hover:bg-purple-200 transition"
+                        >
+                          🔄 Republish
+                        </button>
+                      </>
+                    )}
+                    {request.status === 'in_progress' && !request.resident_complete && (
+                      <button
+                        onClick={() => handleResidentMarkComplete(request.id)}
+                        className="px-3 py-2 rounded-lg bg-green-100 text-green-700 font-semibold text-sm hover:bg-green-200 transition"
+                      >
+                        ✅ Mark Complete
+                      </button>
+                    )}
+                    {request.status !== 'archived' && (
+                      <button
+                        onClick={() => handleDeleteRequest(request.id)}
+                        className="px-3 py-2 rounded-lg bg-red-100 text-red-700 font-semibold text-sm hover:bg-red-200 transition"
+                      >
+                        🗑️ Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -968,7 +1071,21 @@ export default function BoardPage() {
                             {new Date(message.created_at).toLocaleDateString()}
                           </p>
                         </div>
-                        <p className="text-gray-700 text-sm">{message.message}</p>
+                        <p className="text-gray-700 text-sm mb-3">{message.message}</p>
+                        {selectedRequest?.status === 'open' && (
+                          <button
+                            onClick={() => handleAcceptContractor(selectedRequest.id, message.contractor_name, message.contractor_email)}
+                            className="px-4 py-2 rounded-lg bg-[#1B6B4A] text-white font-semibold text-sm hover:bg-[#134E35] transition"
+                          >
+                            Accept This Contractor
+                          </button>
+                        )}
+                        {selectedRequest?.status === 'in_progress' &&
+                          selectedRequest.accepted_contractor_email === message.contractor_email && (
+                          <span className="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">
+                            Accepted
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
